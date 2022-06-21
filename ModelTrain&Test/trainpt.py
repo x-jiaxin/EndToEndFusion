@@ -1,5 +1,6 @@
 import os
 import time
+
 import numpy as np
 import torch
 from torch import nn
@@ -8,24 +9,24 @@ from tqdm import tqdm
 from dataset.ModelNet40DadaSet import ModelNet40, RegistrationData
 from losses.chamfer_distance import ChamferDistanceLoss
 from model.Pointnet import PointNet
-from model.Net import FNet
-from model.DGCNN import DGCNN
+from model.DemoNet import DemoNet
 from operations.transform_functions import PCRNetTransform
 from utils.SaveLog import SaveLog
 from visdom import Visdom
 
-BATCH_SIZE = 20
+BATCH_SIZE = 32
 START_EPOCH = 0
 MAX_EPOCHS = 200
-gpu_ids = [0, 1, 2]
+gpu_ids = [0]
 device = torch.device("cuda:0")
-pretrained = ""  # 是否有训练过的模型可用
+pretrained = ""  # 是否有训练过的模型可用s
 resume = ""  # 最新的检查点文件
 
-exp_name = ""
+exp_name = "demo_Fusion1024_UpdateT"
+# exp_name = "demo_1024Fusion"
 
 dir_name = os.path.join(
-    os.path.dirname(__file__), os.pardir, "checkpoints", exp_name, "models"
+    os.path.dirname(__file__), os.pardir, "checkpoints4", exp_name, "models"
 )
 log_dir = os.path.join(os.path.dirname(__file__), 'log')
 
@@ -38,8 +39,7 @@ if not os.path.exists(log_dir):
 
 def get_model():
     feature = PointNet(emb_dims=1024)
-    dgcnn = DGCNN()
-    return FNet(pt=feature, dgcnn=dgcnn)
+    return DemoNet(feature_model=feature)
 
 
 def train_one_epoch(device, model, train_loader, optimizer):
@@ -84,7 +84,6 @@ def test_one_epoch(device, model, test_loader):
         template = template - torch.mean(template, dim=1, keepdim=True)
         gtt = gtt - torch.mean(source, dim=1).unsqueeze(1)
         output = model(template, source)
-        gtT = PCRNetTransform.convert2transformation(gtR, gtt)
         # loss_val = FrobeniusNormLoss()(output["est_T"], gtT)
         loss_val = ChamferDistanceLoss()(template, output['transformed_source'])
         test_loss += loss_val.item()
@@ -102,8 +101,11 @@ def train(model, train_loader, test_loader):
         legend=["train", "test"])
     startTime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
     learnable_params = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = torch.optim.Adam(learnable_params, lr=0.0001)
-
+    optimizer = torch.optim.Adam(learnable_params)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+                                                     milestones=[300, 350],
+                                                     gamma=0.1,
+                                                     last_epoch=-1)
     if checkpoint is not None:
         min_loss = checkpoint["min_loss"]
         optimizer.load_state_dict(checkpoint["optimizer"])
@@ -130,12 +132,8 @@ def train(model, train_loader, test_loader):
                 os.path.join(dir_name, "best_model.t7"),
             )
             torch.save(
-                model.module.pt.state_dict(),
+                model.module.feature_model.state_dict(),
                 os.path.join(dir_name, "best_ptnet_model.t7"),
-            )
-            torch.save(
-                model.module.dgcnn.state_dict(),
-                os.path.join(dir_name, "best_dgcnn_model.t7"),
             )
 
         torch.save(
@@ -147,12 +145,8 @@ def train(model, train_loader, test_loader):
             os.path.join(dir_name, "model.t7")
         )
         torch.save(
-            model.module.pt.state_dict(),
+            model.module.feature_model.state_dict(),
             os.path.join(dir_name, "ptnet_model.t7"),
-        )
-        torch.save(
-            model.module.dgcnn.state_dict(),
-            os.path.join(dir_name, "dgcnn_model.t7"),
         )
 
         info = "EPOCH:{},Training Loss:{},Testing Loss:{},Best Loss:{}". \
@@ -161,9 +155,8 @@ def train(model, train_loader, test_loader):
         IO = SaveLog(os.path.join(log_dir, f'{exp_name}.log'))
         current_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
         IO.savelog(current_time + "\n" + info)
-        # scheduler.step()
+        scheduler.step()
     endTime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-    print(exp_name)
     print(f"Over!\nStart time:{startTime}\nEnd time:{endTime}")
 
 
@@ -174,27 +167,21 @@ if __name__ == "__main__":
     np.random.seed(1234)
     trainset = RegistrationData(ModelNet40(train=True))
     testset = RegistrationData(ModelNet40(train=False))
-    trainloader = DataLoader(trainset,
-                             batch_size=BATCH_SIZE,
-                             shuffle=True,
-                             drop_last=True,
-                             num_workers=4
-                             )
-    testloader = DataLoader(testset,
-                            batch_size=BATCH_SIZE,
-                            shuffle=False,
-                            drop_last=False,
-                            num_workers=4
-                            )
+    trainloader = DataLoader(
+        trainset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True, num_workers=4
+    )
+    testloader = DataLoader(
+        testset, batch_size=BATCH_SIZE, shuffle=False, drop_last=False, num_workers=4
+    )
     model = get_model()
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model, device_ids=gpu_ids)
-        model = model.to(device)
-        checkpoint = None
-        if resume:
-            checkpoint = torch.load(resume)
-            START_EPOCH = checkpoint["epoch"]
-            model.load_state_dict(checkpoint["model"])
-        if pretrained:
-            model.load_state_dict(torch.load(pretrained, map_location="cpu"))
-        train(model, trainloader, testloader)
+    model = model.to(device)
+    checkpoint = None
+    if resume:
+        checkpoint = torch.load(resume)
+        START_EPOCH = checkpoint["epoch"]
+        model.load_state_dict(checkpoint["model"])
+    if pretrained:
+        model.load_state_dict(torch.load(pretrained, map_location="cpu"))
+    train(model, trainloader, testloader)

@@ -5,7 +5,7 @@ import torch
 
 from model.Net import FNet
 from model.DGCNN import DGCNN
-from model.PointnetAttention import PointNet
+from model.Pointnet import PointNet
 
 if __name__ == '__main__':
     device = torch.device('cuda:3')

@@ -12,7 +12,7 @@ class PointNet(nn.Module):
             raise ValueError("Allowed shapes are 'bcn' (batch * channels * num_in_points), 'bnc' ")
         self.input_shape = input_shape
         self.emb_dims = emb_dims
-        self.emb_dims = 1024 + 64
+        self.emb_dims = 1024
 
         # 待测试没有Batchnorm
         self.conv1 = nn.Conv1d(3, 64, 1)
@@ -36,9 +36,9 @@ class PointNet(nn.Module):
         output = F.relu(self.conv4(output3))
         output5 = F.relu(self.conv5(output))
 
-        output = torch.cat([output3, output5], dim=1)
+        # output = torch.cat([output3, output5], dim=1)
 
-        return output
+        return output5
 
 
 if __name__ == '__main__':

@@ -4,11 +4,9 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from dataset.ModelNet40DadaSet import ModelNet40, RegistrationData
-# from losses.chamfer_distance import ChamferDistanceLoss
-from losses.frobenius_norm import FrobeniusNormLoss
 from mse import compute_metrics, summary_metrics
 from operations.transform_functions import PCRNetTransform
-from train import exp_name, MAX_EPOCHS, get_model, dir_name, log_dir
+from trainpsfe import exp_name, MAX_EPOCHS, get_model, dir_name, log_dir
 
 BATCH_SIZE = 4
 EVAL = False
@@ -27,11 +25,9 @@ def rmse(pts, T, ptt, T_gt):
 
 def test_one_epoch(device, model, test_loader):
     model.eval()
-    test_loss = 0.0
     count = 0
-    errors = []
+    test_loss = 0.0
     r_mse, t_mse, r_mae, t_mae = [], [], [], []
-    rmses = 0
 
     for i, data in enumerate(tqdm(test_loader)):
         template, source, gtT, gtR, gtt = data
@@ -45,6 +41,8 @@ def test_one_epoch(device, model, test_loader):
         template = template - torch.mean(template, dim=1, keepdim=True)
 
         output = model(template, source)
+        # loss_val = ChamferDistanceLoss()(template, output['transformed_source'])
+        # test_loss += loss_val.item()
         est_R = output['est_R']  # B*3*3
         est_t = output['est_t']  # B*1*3
         gtT = PCRNetTransform.convert2transformation(gtR, gtt)
@@ -54,17 +52,19 @@ def test_one_epoch(device, model, test_loader):
         r_mae.append(cur_r_mae)
         t_mae.append(cur_t_mae)
         count += 1
+    # test_loss = float(test_loss) / count
     r_mse, t_mse, r_mae, t_mae = summary_metrics(r_mse, t_mse, r_mae, t_mae)
     r_rmse = np.sqrt(r_mse)
     t_rmse = np.sqrt(t_mse)
-    return r_rmse, t_rmse, r_mse, t_mse, r_mae, t_mae
+    # return test_loss, r_rmse, t_rmse, r_mse, t_mse, r_mae, t_mae
+    return 0, r_rmse, t_rmse, r_mse, t_mse, r_mae, t_mae
 
 
 if __name__ == '__main__':
-    torch.backends.cudnn.deterministic = True
-    torch.manual_seed(1234)
-    torch.cuda.manual_seed_all(1234)
-    np.random.seed(1234)
+    # torch.backends.cudnn.deterministic = True
+    # torch.manual_seed(1234)
+    # torch.cuda.manual_seed_all(1234)
+    # np.random.seed(1234)
     testset = RegistrationData(ModelNet40(train=False))
     testloader = DataLoader(testset,
                             batch_size=BATCH_SIZE,
@@ -76,8 +76,8 @@ if __name__ == '__main__':
     model = model.to(device)
     if pretrained:
         model.load_state_dict(torch.load(pretrained, map_location='cuda'))
-    a, b, c, d, e, f = \
+    a, b, c, d, e, f, g = \
         test_one_epoch(device, model, testloader)
-    info = "RMSE(R): {}, RMSE(t): {} & MSE(R): {} & MSE(t): {} & \nMAE(R): {} & MAE(t): {}". \
-        format(a, b, c, d, e, f)
+    info = "Loss:{},\nRMSE(R): {}, RMSE(t): {} & MSE(R): {} & MSE(t): {} & \nMAE(R): {} & MAE(t): {}". \
+        format(a, b, c, d, e, f, g)
     print(info)

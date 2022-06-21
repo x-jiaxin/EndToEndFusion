@@ -4,11 +4,9 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from dataset.ModelNet40DadaSet import ModelNet40, RegistrationData
-# from losses.chamfer_distance import ChamferDistanceLoss
-from losses.frobenius_norm import FrobeniusNormLoss
 from mse import compute_metrics, summary_metrics
 from operations.transform_functions import PCRNetTransform
-from train import exp_name, MAX_EPOCHS, get_model, dir_name, log_dir
+from trainpt import exp_name, MAX_EPOCHS, get_model, dir_name, log_dir
 
 BATCH_SIZE = 4
 EVAL = False
@@ -27,11 +25,8 @@ def rmse(pts, T, ptt, T_gt):
 
 def test_one_epoch(device, model, test_loader):
     model.eval()
-    test_loss = 0.0
     count = 0
-    errors = []
     r_mse, t_mse, r_mae, t_mae = [], [], [], []
-    rmses = 0
 
     for i, data in enumerate(tqdm(test_loader)):
         template, source, gtT, gtR, gtt = data
