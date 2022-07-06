@@ -4,7 +4,7 @@
 import torch
 from torch import nn
 
-from model.Pointnet import PointNet
+from model.PointnetAttn import PointNet
 from operations.Pooling import Pooling
 from operations.dual import dual_quat_to_extrinsic
 from operations.transform_functions import PCRNetTransform

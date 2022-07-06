@@ -14,7 +14,7 @@ if __name__ == '__main__':
     source = source.to(device)
     pn = PointNet(emb_dims=1024)
     dg = DGCNN()
-    net = FNet(pt=pn, dgcnn=dg)
+    net = FNet(pt=pn, PSFE=dg)
     net = net.to(device)
     result = net(template, source)
     print(result['est_R'].shape)

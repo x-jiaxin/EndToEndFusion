@@ -5,8 +5,6 @@ import torch.nn.functional as F
 
 class PointNet(nn.Module):
     def __init__(self, emb_dims=1024, input_shape="bnc"):
-        # emb_dims:			Embedding Dimensions for PointNet.
-        # input_shape:		Shape of Input Point Cloud (b: batch, n: no of points, c: channels)
         super(PointNet, self).__init__()
         if input_shape not in ["bcn", "bnc"]:
             raise ValueError("Allowed shapes are 'bcn' (batch * channels * num_in_points), 'bnc' ")
@@ -22,8 +20,6 @@ class PointNet(nn.Module):
         self.conv5 = nn.Conv1d(128, 1024, 1)
 
     def forward(self, input_data):
-        # input_data: 		Point Cloud having shape input_shape.
-        # output:			PointNet features (Batch x emb_dims)
         if self.input_shape == "bnc":
             num_points = input_data.shape[1]
             input_data = input_data.permute(0, 2, 1)
@@ -35,9 +31,6 @@ class PointNet(nn.Module):
         output3 = F.relu(self.conv3(output))
         output = F.relu(self.conv4(output3))
         output5 = F.relu(self.conv5(output))
-
-        # output = torch.cat([output3, output5], dim=1)
-
         return output5
 
 

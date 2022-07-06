@@ -9,7 +9,7 @@ from tqdm import tqdm
 from dataset.ModelNet40DadaSet import ModelNet40, RegistrationData
 from losses.chamfer_distance import ChamferDistanceLoss
 from model.Pointnet import PointNet
-from model.DemoNet import DemoNet
+from model.ablationNet import DemoNet
 from operations.transform_functions import PCRNetTransform
 from utils.SaveLog import SaveLog
 from visdom import Visdom

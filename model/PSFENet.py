@@ -4,7 +4,7 @@
 import torch
 from torch import nn
 
-from model.PointStructureFeatureExtractor import PSFE
+from model.LocalStructureFeatureExtractor import LocalStructureFeatureExtractor
 from model.Pointnet import PointNet
 from operations.Pooling import Pooling
 from operations.dual import dual_quat_to_extrinsic
@@ -13,7 +13,7 @@ import torch.nn.functional as F
 
 
 class PSFENet(nn.Module):
-    def __init__(self, PT=PointNet(emb_dims=1024), PSE=PSFE(), droput=0.0, pooling='max'):
+    def __init__(self, PT=PointNet(emb_dims=1024), PSE=LocalStructureFeatureExtractor(), droput=0.0, pooling='max'):
         super(PSFENet, self).__init__()
         self.PT = PT
         self.PSE = PSE

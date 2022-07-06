@@ -2,7 +2,6 @@
 Author: xjiaxin
 Date: 2022-04-28 19:05:00
 """
-
 import torch
 import torch.nn as nn
 
@@ -25,8 +24,8 @@ class fusion(nn.Module):
         C_row = torch.sum(Cm, dim=2).reshape(B, -1, C2)
         alpha = torch.sigmoid(C_row)
         beta = torch.sigmoid(C_col)
-        f1_newM = torch.mul(f1, 1 - alpha)
-        f2_newM = torch.mul(f2, 1 - beta)
+        f1_newM = torch.mul(f1, alpha)
+        f2_newM = torch.mul(f2, beta)
         return f1_newM, f2_newM  # B,N,C
         # return f1_newM  # B,N,C
 

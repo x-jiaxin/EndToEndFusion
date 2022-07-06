@@ -1,6 +1,5 @@
 import os
 import time
-
 import numpy as np
 import torch
 from torch import nn
@@ -8,9 +7,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from dataset.ModelNet40DadaSet import ModelNet40, RegistrationData
 from losses.chamfer_distance import ChamferDistanceLoss
-# from losses.frobenius_norm import FrobeniusNormLoss
 from model.PSFENet import PSFENet
-from operations.transform_functions import PCRNetTransform
+from model.Net import FNet
 from utils.SaveLog import SaveLog
 from visdom import Visdom
 
@@ -22,10 +20,10 @@ device = torch.device("cuda:0")
 pretrained = ""  # 是否有训练过的模型可用s
 resume = ""  # 最新的检查点文件
 
-exp_name = "PSFENet_CDLoss_128"
+exp_name = "Net_FusionPt1024_NoUpT"
 
 dir_name = os.path.join(
-    os.path.dirname(__file__), os.pardir, "checkpoints4", exp_name, "models"
+    os.path.dirname(__file__), os.pardir, "checkpoints5", exp_name, "models"
 )
 log_dir = os.path.join(os.path.dirname(__file__), 'log')
 
@@ -37,7 +35,8 @@ if not os.path.exists(log_dir):
 
 
 def get_model():
-    return PSFENet()
+    # return PSFENet()
+    return FNet()
 
 
 def train_one_epoch(device, model, train_loader, optimizer):
@@ -48,14 +47,9 @@ def train_one_epoch(device, model, train_loader, optimizer):
         template, source, igt, gtR, gtt = data
         template = template.to(device)  # [B,N,3]
         source = source.to(device)  # [B,N,3]
-        igt = igt.to(device)
-        gtR = gtR.to(device)
-        gtt = gtt.to(device)
         source = source - torch.mean(source, dim=1, keepdim=True)
         template = template - torch.mean(template, dim=1, keepdim=True)
-        # gtT = PCRNetTransform.convert2transformation(gtR, gtt)
         output = model(template, source)
-        # loss_val = FrobeniusNormLoss()(output["est_T"], gtT)
         loss_val = ChamferDistanceLoss()(template, output['transformed_source'])
         optimizer.zero_grad()
         loss_val.backward()
@@ -75,15 +69,9 @@ def test_one_epoch(device, model, test_loader):
         template, source, igt, gtR, gtt = data
         template = template.to(device)
         source = source.to(device)
-        igt = igt.to(device)
-        gtR = gtR.to(device)
-        gtt = gtt.to(device)
         source = source - torch.mean(source, dim=1, keepdim=True)
         template = template - torch.mean(template, dim=1, keepdim=True)
-        # gtt = gtt - torch.mean(source, dim=1).unsqueeze(1)  # ?
-        # gtT = PCRNetTransform.convert2transformation(gtR, gtt)
         output = model(template, source)
-        # loss_val = FrobeniusNormLoss()(output["est_T"], gtT)
         loss_val = ChamferDistanceLoss()(template, output['transformed_source'])
         test_loss += loss_val.item()
         count += 1
