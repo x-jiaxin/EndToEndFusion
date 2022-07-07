@@ -48,13 +48,20 @@ def read_classed():
         return shape_name
 
 
+def jitter_pointcloud(pointcloud, sigma=0.01, clip=0.05):
+    N, C = pointcloud.shape
+    pointcloud += np.clip(sigma * np.random.randn(N, C), -1 * clip, clip)
+    return pointcloud
+
+
 class ModelNet40(Dataset):
-    def __init__(self, train=True, num_points=1024, randomize_data=False, unseen=False):
+    def __init__(self, train=True, num_points=1024, randomize_data=False, unseen=False, noise=False):
         super(ModelNet40, self).__init__()
         self.data, self.labels = load_data(train)
         self.shapes = read_classed()
         self.num_points = num_points
         self.randomize_data = randomize_data
+        self.noise = noise
         if unseen:
             # 前20个类训练，后20个类测试
             self.unseen_label = self.labels.squeeze()
@@ -70,7 +77,8 @@ class ModelNet40(Dataset):
             current_points = self.randomize(index)  # 从该实例2048个点随机采样了1024个点
         else:
             current_points = self.data[index].copy()  # 直接使用该实例2048个点
-
+        if self.noise:
+            jitter_pointcloud(current_points)
         current_points = torch.from_numpy(current_points).float()
         label = torch.from_numpy(self.labels[index]).type(torch.LongTensor)
         return current_points, label  # 返回该实例（实例从2048个点随机采样了1024个点）以及标签
@@ -108,9 +116,8 @@ class RegistrationData(Dataset):
 
 
 if __name__ == '__main__':
-    train_modelnet = ModelNet40(train=True, unseen=True)
-    train_dataset = RegistrationData(train_modelnet)
-    dataloader = DataLoader(train_dataset, batch_size=2)
+    train_dataset = RegistrationData(ModelNet40(train=True, unseen=True, noise=True))
+    dataloader = DataLoader(train_dataset, batch_size=1)
     for data in dataloader:
         a, b, _, R, t = data
         print(a.shape)
